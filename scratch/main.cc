@@ -84,6 +84,7 @@
 #include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4-list-routing-helper.h"
 #include "ns3/internet-stack-helper.h"
+#include "ns3/wsngr-helper.h"
 
 using namespace ns3;
 
@@ -93,7 +94,7 @@ void ReceivePacket (Ptr<Socket> socket)
 {
   while (socket->Recv ())
     {
-      NS_LOG_UNCOND ("Received one packet!");
+      // NS_LOG_UNCOND ("Received one packet!");
     }
 }
 
@@ -113,15 +114,64 @@ static void GenerateTraffic (Ptr<Socket> socket, uint32_t pktSize,
 }
 
 
+void print_nodes(){
+  for(auto& [ip,info] : wsngr::RoutingProtocol::nodes){
+    std::cout << info << std::endl;
+  }
+}
+
+int MaxPacketsNumber = 200;
+
+int SendCount = 0;
+
+void SendRandomPacketToLC_DIS(InetSocketAddress& sinkAddress,NodeContainer& nodes)
+{
+	int m_packetSize = 1024;
+	int sinkPort = 8080;
+	int64_t nano = 0;
+	int64_t onano = 0;
+  
+  SendCount++;
+
+  int src = (rand() % (nodes.GetN() - 1)) + 1;
+
+
+  TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
+
+  Ptr<Socket> source = Socket::CreateSocket (nodes.Get (src), tid);
+	source->Bind ();
+	source->Connect (sinkAddress);
+
+	uint8_t * buffer = new uint8_t [m_packetSize];
+	onano = nano = Simulator::Now().GetNanoSeconds();
+	for(int i = 0; i<8; i++)
+	{
+		int64_t tmp = nano >> 8;
+		int64_t tmp1 = tmp << 8;
+		uint8_t val = (uint8_t)(nano - tmp1);
+		nano = tmp;
+		buffer[i] = val;
+	}
+
+	Ptr<Packet> packet = Create<Packet> (buffer, m_packetSize);
+	source->Send (packet);
+
+	source->Close();
+
+	if(SendCount < MaxPacketsNumber)
+		Simulator::Schedule(Seconds(1), &SendRandomPacketToLC_DIS,sinkAddress,nodes);
+}
+
+
 int main (int argc, char *argv[])
 {
   std::string phyMode ("DsssRate1Mbps");
   double distance = 500;  // m
   uint32_t packetSize = 1000; // bytes
   uint32_t numPackets = 1;
-  uint32_t numNodes = 25;  // by default, 5x5
+  uint32_t numNodes = 50;  // by default, 5x5
   uint32_t sinkNode = 0;
-  uint32_t sourceNode = 24;
+  uint32_t sourceNode = 4;
   double interval = 1.0; // seconds
   bool verbose = false;
   bool tracing = false;
@@ -185,19 +235,11 @@ int main (int argc, char *argv[])
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (c);
 
-  for(auto it = c.Begin();it != c.End();++it){
-    auto p = *it;
-    // p->GetObject<MobilityModel>()->GetPosition();
-    std::cout << p->GetObject<MobilityModel>()->GetPosition() << "\n";
-  }
-
   // Enable OLSR
-  OlsrHelper olsr;
-  Ipv4StaticRoutingHelper staticRouting;
+  WsngrHelper wsngr;
 
   Ipv4ListRoutingHelper list;
-  list.Add (staticRouting, 0);
-  list.Add (olsr, 10);
+  list.Add (wsngr, 10);
 
   InternetStackHelper internet;
   internet.SetRoutingHelper (list); // has effect on the next Install ()
@@ -208,6 +250,18 @@ int main (int argc, char *argv[])
   ipv4.SetBase ("10.1.1.0", "255.255.255.0");
   Ipv4InterfaceContainer i = ipv4.Assign (devices);
 
+  std::cout << "sink addr : " << i.GetAddress (sinkNode, 0) << std::endl;
+
+  wsngr::RoutingProtocol::SetSinkIP(i.GetAddress (sinkNode, 0));
+
+  for(int j = 0;j < c.GetN();j++){
+    auto ip = i.GetAddress (j, 0);
+    auto p = c.Get(j);
+    std::cout << j + 1 << ":"<< p->GetObject<MobilityModel>()->GetPosition() <<  std::endl;
+
+    wsngr::RoutingProtocol::nodes[ip] = wsngr::NodeInfo{ip,p->GetObject<MobilityModel>()->GetPosition(),10,10,Simulator::Now(),wsngr::NodeState::WORKING};
+  }
+
   TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
   Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (sinkNode), tid);
   InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (), 80);
@@ -217,29 +271,31 @@ int main (int argc, char *argv[])
   Ptr<Socket> source = Socket::CreateSocket (c.Get (sourceNode), tid);
   InetSocketAddress remote = InetSocketAddress (i.GetAddress (sinkNode, 0), 80);
   source->Connect (remote);
+  // if (tracing == true)
+  //   {
+  //     AsciiTraceHelper ascii;
+  //     wifiPhy.EnableAsciiAll (ascii.CreateFileStream ("wifi-simple-adhoc-grid.tr"));
+  //     wifiPhy.EnablePcap ("wifi-simple-adhoc-grid", devices);
+  //     // Trace routing tables
+  //     Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("wifi-simple-adhoc-grid.routes", std::ios::out);
+  //     olsr.PrintRoutingTableAllEvery (Seconds (2), routingStream);
+  //     Ptr<OutputStreamWrapper> neighborStream = Create<OutputStreamWrapper> ("wifi-simple-adhoc-grid.neighbors", std::ios::out);
+  //     olsr.PrintNeighborCacheAllEvery (Seconds (2), neighborStream);
 
-  if (tracing == true)
-    {
-      AsciiTraceHelper ascii;
-      wifiPhy.EnableAsciiAll (ascii.CreateFileStream ("wifi-simple-adhoc-grid.tr"));
-      wifiPhy.EnablePcap ("wifi-simple-adhoc-grid", devices);
-      // Trace routing tables
-      Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("wifi-simple-adhoc-grid.routes", std::ios::out);
-      olsr.PrintRoutingTableAllEvery (Seconds (2), routingStream);
-      Ptr<OutputStreamWrapper> neighborStream = Create<OutputStreamWrapper> ("wifi-simple-adhoc-grid.neighbors", std::ios::out);
-      olsr.PrintNeighborCacheAllEvery (Seconds (2), neighborStream);
-
-      // To do-- enable an IP-level trace that shows forwarding events only
-    }
+  //     // To do-- enable an IP-level trace that shows forwarding events only
+  //   }
 
   // Give OLSR time to converge-- 30 seconds perhaps
-  Simulator::Schedule (Seconds (30.0), &GenerateTraffic,
-                       source, packetSize, numPackets, interPacketInterval);
+  // Simulator::Schedule (Seconds (30.0), &GenerateTraffic,
+  //                      source, packetSize, numPackets, interPacketInterval);
+
+  Simulator::Schedule (Seconds (30.0), &SendRandomPacketToLC_DIS,remote,c);
 
   // Output what we are doing
   NS_LOG_UNCOND ("Testing from node " << sourceNode << " to " << sinkNode << " with grid distance " << distance);
+  Simulator::Schedule (Seconds (300.0), &print_nodes);
 
-  Simulator::Stop (Seconds (33.0));
+  Simulator::Stop (Seconds (330.0));
   Simulator::Run ();
   Simulator::Destroy ();
 
