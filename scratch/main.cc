@@ -85,6 +85,8 @@
 #include "ns3/ipv4-list-routing-helper.h"
 #include "ns3/internet-stack-helper.h"
 #include "ns3/wsngr-helper.h"
+#include "ns3/charger.h"
+#include"ns3/wsngr.h"
 
 using namespace ns3;
 
@@ -120,7 +122,7 @@ void print_nodes(){
   }
 }
 
-int MaxPacketsNumber = 200;
+int MaxPacketsNumber = 20*3600;
 
 int SendCount = 0;
 
@@ -159,7 +161,7 @@ void SendRandomPacketToLC_DIS(InetSocketAddress& sinkAddress,NodeContainer& node
 	source->Close();
 
 	if(SendCount < MaxPacketsNumber)
-		Simulator::Schedule(Seconds(1), &SendRandomPacketToLC_DIS,sinkAddress,nodes);
+		Simulator::Schedule(Seconds(5), &SendRandomPacketToLC_DIS,sinkAddress,nodes);
 }
 
 
@@ -169,7 +171,7 @@ int main (int argc, char *argv[])
   double distance = 500;  // m
   uint32_t packetSize = 1000; // bytes
   uint32_t numPackets = 1;
-  uint32_t numNodes = 50;  // by default, 5x5
+  uint32_t numNodes = 100;  // by default, 5x5
   uint32_t sinkNode = 0;
   uint32_t sourceNode = 4;
   double interval = 1.0; // seconds
@@ -229,8 +231,8 @@ int main (int argc, char *argv[])
   MobilityHelper mobility;
   
   mobility.SetPositionAllocator ("ns3::RandomRectanglePositionAllocator",
-                                 "X", StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=100.0]"),
-                                 "Y", StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=100.0]"));
+                                 "X", StringValue ("ns3::UniformRandomVariable[Min=-50.0|Max=50.0]"),
+                                 "Y", StringValue ("ns3::UniformRandomVariable[Min=-50.0|Max=50.0]"));
 
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (c);
@@ -247,10 +249,12 @@ int main (int argc, char *argv[])
 
   Ipv4AddressHelper ipv4;
   NS_LOG_INFO ("Assign IP Addresses.");
-  ipv4.SetBase ("10.1.1.0", "255.255.255.0");
+  ipv4.SetBase ("10.1.0.0", "255.255.0.0");
   Ipv4InterfaceContainer i = ipv4.Assign (devices);
 
   std::cout << "sink addr : " << i.GetAddress (sinkNode, 0) << std::endl;
+
+  c.Get(0)->GetObject<MobilityModel>()->SetPosition(Vector{0,0,0});
 
   wsngr::RoutingProtocol::SetSinkIP(i.GetAddress (sinkNode, 0));
 
@@ -259,7 +263,7 @@ int main (int argc, char *argv[])
     auto p = c.Get(j);
     std::cout << j + 1 << ":"<< p->GetObject<MobilityModel>()->GetPosition() <<  std::endl;
 
-    wsngr::RoutingProtocol::nodes[ip] = wsngr::NodeInfo{ip,p->GetObject<MobilityModel>()->GetPosition(),10,10,Simulator::Now(),wsngr::NodeState::WORKING};
+    wsngr::RoutingProtocol::nodes[ip] = wsngr::NodeInfo{ip,p->GetObject<MobilityModel>()->GetPosition(),wsngr::NodeInfo::MAX_ENERGY,wsngr::NodeInfo::MAX_ENERGY,Simulator::Now(),wsngr::NodeState::WORKING};
   }
 
   TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
@@ -289,16 +293,20 @@ int main (int argc, char *argv[])
   // Simulator::Schedule (Seconds (30.0), &GenerateTraffic,
   //                      source, packetSize, numPackets, interPacketInterval);
 
+  auto charger = Singleton<charger::ChargerBase>::Get();
+  Simulator::Schedule(Seconds (10),&charger::ChargerBase::run,charger);
+  
   Simulator::Schedule (Seconds (30.0), &SendRandomPacketToLC_DIS,remote,c);
 
   // Output what we are doing
   NS_LOG_UNCOND ("Testing from node " << sourceNode << " to " << sinkNode << " with grid distance " << distance);
-  Simulator::Schedule (Seconds (300.0), &print_nodes);
+  // Simulator::Schedule (Seconds (200*3600 - 100), &print_nodes);
 
-  Simulator::Stop (Seconds (330.0));
+  Simulator::Stop (Seconds (2*3600));
   Simulator::Run ();
   Simulator::Destroy ();
-
+  print_nodes();
+  charger->print_statistics();
   return 0;
 }
 

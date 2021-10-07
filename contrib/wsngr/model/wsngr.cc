@@ -36,11 +36,15 @@ NS_LOG_COMPONENT_DEFINE ("WsngrRoutingProtocol");
 namespace wsngr {
 
 constexpr double COMM_RANGE = 20;
-constexpr double TX_THRESHOLD = 0.5;
+constexpr double TX_THRESHOLD = 0.01;
 
 const auto SENSING_ENERGY_UPDATE_INTERVAL = Seconds(10);
 
 void NodeInfo::handleEnergy(int type){
+
+  if(state == NodeState::CHARGING || state == NodeState::DEAD){
+    return;
+  }
   last_energy = energy;
   last_update_time = Simulator::Now();
 
@@ -48,6 +52,16 @@ void NodeInfo::handleEnergy(int type){
     energy -= RoutingProtocol::Tx_Consume;
   }else if(type == RX_TYPE){ //Rx
     energy -= RoutingProtocol::Rx_Consume;
+  }else if(type == SENSING_TYPE){
+    energy -= RoutingProtocol::Sensing_Consume;
+  }
+
+  if(energy <= 0){
+    if(state != NodeState::DEAD){
+      deadTimes++;
+      state = NodeState::DEAD;
+      energy = 0;
+    }
   }
 }
 
@@ -55,15 +69,9 @@ double NodeInfo::getEnergyRate()const{
   return (last_energy - energy ) / (Simulator::Now() - last_update_time).GetSeconds();
 }
 
-
-void NodeInfo::sensingConsume(){
-  energy = std::max(energy - RoutingProtocol::Sensing_Consume,0.0);
-}
-
-
 std::ostream& operator<<(std::ostream& os,const NodeInfo& node){
 
-  os << "ip : " << node.ip << " energy : " << node.energy << " rate : " << node.getEnergyRate();
+  os << "ip : " << node.ip << " energy : " << node.energy << " rate : " << node.getEnergyRate() << " dead times : " << node.deadTimes;
 }
 
 std::unordered_map<Ipv4Address, NodeInfo, RoutingProtocol::IpHash> RoutingProtocol::nodes{};
@@ -544,7 +552,7 @@ NodeInfo& RoutingProtocol::GetInfo(){
 
 
 void RoutingProtocol::SensingConsume(){
-  GetInfo().sensingConsume();
+  GetInfo().handleEnergy(NodeInfo::SENSING_TYPE);
   m_sensingTimer.Schedule(SENSING_ENERGY_UPDATE_INTERVAL);
 }
 

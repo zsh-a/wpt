@@ -24,26 +24,32 @@
 
 namespace ns3 {
 namespace wsngr{
+constexpr double ALPHA = 0.01;
+
 enum NodeState{
-  CHARGING,WORKING
+  CHARGING,WORKING,DEAD
 };
 
 struct NodeInfo{
+
+  constexpr static double MAX_ENERGY = 10.8;
+  constexpr static double CHARING_THRESHOLD = 1;
+  constexpr static int RX_TYPE = 0; 
+  constexpr static int TX_TYPE = 1; 
+  constexpr static int SENSING_TYPE = 2; 
+
   Ipv4Address ip;
   Vector position;
-  double energy = 10;
-  double last_energy = 10;
+  double energy = MAX_ENERGY;
+  double last_energy = MAX_ENERGY;
   Time last_update_time;
   NodeState state;
 
-  constexpr static int RX_TYPE = 0; 
-  constexpr static int TX_TYPE = 1; 
+  int deadTimes = 0;
 
   void handleEnergy(int type);
 
   double getEnergyRate()const;
-
-  void sensingConsume();
 };
 
 std::ostream& operator<<(std::ostream& os,const NodeInfo& node);
@@ -64,13 +70,17 @@ public:
     sink_ip = ip;
   }
 
+  static NodeInfo& getSink(){
+    return nodes[sink_ip];
+  }
+
   static std::unordered_map<Ipv4Address,NodeInfo,IpHash>& GetNodes(){
     return nodes;
   }
 
-  static constexpr double Tx_Consume = 0.1;
+  static constexpr double Tx_Consume = 0.01 * 1.5;
   static constexpr double Rx_Consume = Tx_Consume * 0.6;
-  static constexpr double Sensing_Consume = 0.2;
+  static constexpr double Sensing_Consume = 0.01 * 1.4;
 
   /**
    * \brief Get the type ID.
