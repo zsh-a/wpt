@@ -45,17 +45,23 @@ void NodeInfo::handleEnergy(int type){
   if(state == NodeState::CHARGING || state == NodeState::DEAD){
     return;
   }
-  last_energy = energy;
+  double consume = 0;
+  auto now = Simulator::Now();
+  if((now - last_update_time).GetSeconds() >= ENERGY_RECORD_INTERVEL){
+    last_update_time = now;
+    energy_consume_in_record_intervel = 0;
+  }
   last_update_time = Simulator::Now();
 
   if(type == TX_TYPE){ // Tx
-    energy -= RoutingProtocol::Tx_Consume;
+    consume = RoutingProtocol::Tx_Consume;
   }else if(type == RX_TYPE){ //Rx
-    energy -= RoutingProtocol::Rx_Consume;
+    consume = RoutingProtocol::Rx_Consume;
   }else if(type == SENSING_TYPE){
-    energy -= RoutingProtocol::Sensing_Consume;
+    consume = RoutingProtocol::Sensing_Consume;
   }
-
+  energy_consume_in_record_intervel += consume;
+  energy -= consume;
   if(energy <= 0){
     if(state != NodeState::DEAD){
       deadTimes++;
@@ -66,7 +72,7 @@ void NodeInfo::handleEnergy(int type){
 }
 
 double NodeInfo::getEnergyRate()const{
-  return (last_energy - energy ) / (Simulator::Now() - last_update_time).GetSeconds();
+  return energy_consume_in_record_intervel / ENERGY_RECORD_INTERVEL;
 }
 
 std::ostream& operator<<(std::ostream& os,const NodeInfo& node){

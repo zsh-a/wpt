@@ -120,9 +120,10 @@ void print_nodes(){
   for(auto& [ip,info] : wsngr::RoutingProtocol::nodes){
     std::cout << info << std::endl;
   }
+  Simulator::Schedule(Seconds(1800),print_nodes);
 }
 
-int MaxPacketsNumber = 20*3600;
+int MaxPacketsNumber = 200*3600;
 
 int SendCount = 0;
 
@@ -161,7 +162,7 @@ void SendRandomPacketToLC_DIS(InetSocketAddress& sinkAddress,NodeContainer& node
 	source->Close();
 
 	if(SendCount < MaxPacketsNumber)
-		Simulator::Schedule(Seconds(5), &SendRandomPacketToLC_DIS,sinkAddress,nodes);
+		Simulator::Schedule(Seconds(2), &SendRandomPacketToLC_DIS,sinkAddress,nodes);
 }
 
 
@@ -297,7 +298,8 @@ int main (int argc, char *argv[])
   Simulator::Schedule(Seconds (10),&charger::ChargerBase::run,charger);
   
   Simulator::Schedule (Seconds (30.0), &SendRandomPacketToLC_DIS,remote,c);
-
+  Simulator::Schedule(Seconds(1800),print_nodes);
+  
   // Output what we are doing
   NS_LOG_UNCOND ("Testing from node " << sourceNode << " to " << sinkNode << " with grid distance " << distance);
   // Simulator::Schedule (Seconds (200*3600 - 100), &print_nodes);
@@ -305,7 +307,7 @@ int main (int argc, char *argv[])
   Simulator::Stop (Seconds (2*3600));
   Simulator::Run ();
   Simulator::Destroy ();
-  print_nodes();
+  // print_nodes();
   charger->print_statistics();
   return 0;
 }

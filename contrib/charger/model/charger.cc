@@ -41,7 +41,7 @@ void ChargerBase::handle(){
 
             double tot_dist = dist + CalculateDistance(node.position,sink.position);
 
-            double moveing_to_sink_energy = tot_dist / MOVING_ENERGY + (wsngr::NodeInfo::MAX_ENERGY - node.energy) / getChargingEfficiency(0);
+            double moveing_to_sink_energy = tot_dist * MOVING_ENERGY + (wsngr::NodeInfo::MAX_ENERGY - node.energy) / getChargingEfficiency(0);
             std::cout << " " << moveing_to_sink_energy << " ip " << ip << "\n";
             if(energy < moveing_to_sink_energy){
                 state = SELF_CHARGING;
@@ -68,6 +68,8 @@ void ChargerBase::handle(){
             state = IDLE;
             auto& node = wsngr::RoutingProtocol::nodes[working_node];
             node.state = wsngr::NodeState::WORKING;
+            node.energy_consume_in_record_intervel = 0;
+            node.last_update_time = Simulator::Now();
             eventTimer.Schedule(Seconds(0.1));
         }
         break;
@@ -91,8 +93,6 @@ void ChargerBase::handle(){
 
             node.state = wsngr::NodeState::CHARGING;
             node.energy = wsngr::NodeInfo::MAX_ENERGY;
-            node.last_energy = node.energy;
-            node.last_update_time = Simulator::Now();
 
             eventTimer.Schedule(time);
         }

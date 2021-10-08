@@ -22,7 +22,7 @@ struct ChargerBase{
     enum State{
         IDLE,CHARGING,SELF_CHARGING,MOVING
     };
-    constexpr static double CHARGING_RATE = 0.005 * 5;
+    constexpr static double CHARGING_RATE = 0.005 * 120;
     constexpr static double MOVING_RATE = 5;
     constexpr static double MOVING_ENERGY = 0.6;
     constexpr static double MAX_ENERGY = 4000;

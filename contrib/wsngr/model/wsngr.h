@@ -38,10 +38,12 @@ struct NodeInfo{
   constexpr static int TX_TYPE = 1; 
   constexpr static int SENSING_TYPE = 2; 
 
+  constexpr static double ENERGY_RECORD_INTERVEL = 60 * 10;
+
   Ipv4Address ip;
   Vector position;
   double energy = MAX_ENERGY;
-  double last_energy = MAX_ENERGY;
+  double energy_consume_in_record_intervel = 0;
   Time last_update_time;
   NodeState state;
 
