@@ -11,6 +11,9 @@ Time ChargerBase::SELF_CHARGING_TIME = Seconds(1800);
 int ChargerBase::dead_node = 0;
 double ChargerBase::energy_in_moving = 0;
 double ChargerBase::energy_for_nodes = 0;
+int ChargerBase::charged_sensor = 0;
+int ChargerBase::requested_sensor = 0;
+double ChargerBase::tot_latency = 0;
 
 ChargerBase::ChargerBase():
     eventTimer(Timer::CANCEL_ON_DESTROY),
@@ -23,7 +26,7 @@ ChargerBase::ChargerBase():
 
 
 double ChargerBase::getChargingEfficiency(double distance){
-    return 0.5;
+    return 0.68;
 }
 void ChargerBase::handle(){
     std::cout << "state : " << state << "\n";
@@ -54,7 +57,6 @@ void ChargerBase::handle(){
                 eventTimer.Schedule(time);
                 return;
             }
-            chargeQueue.erase(ip);
             Time time = getMovingTime(dist);
             // === record
             energy_in_moving += dist * MOVING_ENERGY;
@@ -67,9 +69,13 @@ void ChargerBase::handle(){
         case CHARGING:{
             state = IDLE;
             auto& node = wsngr::RoutingProtocol::nodes[working_node];
+            chargeQueue.erase(working_node);
             node.state = wsngr::NodeState::WORKING;
             node.energy_consume_in_record_intervel = 0;
             node.last_update_time = Simulator::Now();
+            // === record
+            tot_latency += (Simulator::Now() - node.requested_time).GetSeconds();
+            // ===
             eventTimer.Schedule(Seconds(0.1));
         }
         break;
@@ -89,6 +95,7 @@ void ChargerBase::handle(){
 
             // === record
             energy_for_nodes += wsngr::NodeInfo::MAX_ENERGY - node.energy;
+            charged_sensor++;
             // ===
 
             node.state = wsngr::NodeState::CHARGING;
@@ -112,7 +119,13 @@ void ChargerBase::checkHandle(){
 
     auto& nodes = wsngr::RoutingProtocol::GetNodes();
     for(auto& [ip,info] : nodes){
-        if(info.energy <= wsngr::NodeInfo::CHARING_THRESHOLD) chargeQueue.insert(ip);
+        if(info.energy <= wsngr::NodeInfo::CHARING_THRESHOLD){
+            if(!chargeQueue.count(ip)){
+                info.requested_time = Simulator::Now();
+                requested_sensor++;
+                chargeQueue.insert(ip);
+            }
+        }
     }
     if(chargeQueue.size() && state == IDLE && eventTimer.IsExpired()){
         eventTimer.Schedule(Seconds(0.1));
@@ -140,6 +153,9 @@ void ChargerBase::print_statistics(){
         << "dead nodes : " << dead_node << " \n"
         << "energy in moving : " << energy_in_moving << " \n"
         << "nodes receive energy : " << energy_for_nodes << "\n"
+        << "energy usage efficiency: " << energy_for_nodes / (energy_for_nodes / getChargingEfficiency(0) + energy_in_moving) << "\n"
+        << "survival rate: " << charged_sensor*1.0 / requested_sensor << "\n"
+        << "average charging latency: " << tot_latency / charged_sensor << "s\n"
         << "======================";
 }
 

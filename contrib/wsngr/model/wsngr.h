@@ -47,6 +47,8 @@ struct NodeInfo{
   Time last_update_time;
   NodeState state;
 
+  Time requested_time;
+
   int deadTimes = 0;
 
   void handleEnergy(int type);

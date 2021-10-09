@@ -162,7 +162,7 @@ void SendRandomPacketToLC_DIS(InetSocketAddress& sinkAddress,NodeContainer& node
 	source->Close();
 
 	if(SendCount < MaxPacketsNumber)
-		Simulator::Schedule(Seconds(2), &SendRandomPacketToLC_DIS,sinkAddress,nodes);
+		Simulator::Schedule(Seconds(5), &SendRandomPacketToLC_DIS,sinkAddress,nodes);
 }
 
 
@@ -307,7 +307,7 @@ int main (int argc, char *argv[])
   Simulator::Stop (Seconds (2*3600));
   Simulator::Run ();
   Simulator::Destroy ();
-  // print_nodes();
+  print_nodes();
   charger->print_statistics();
   return 0;
 }
