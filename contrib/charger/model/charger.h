@@ -22,10 +22,10 @@ struct ChargerBase{
     enum State{
         IDLE,CHARGING,SELF_CHARGING,MOVING
     };
-    constexpr static double CHARGING_RATE = 0.005 * 10;
+    constexpr static double CHARGING_RATE = 10;
     constexpr static double MOVING_RATE = 5;
-    constexpr static double MOVING_ENERGY = 0.6;
-    constexpr static double MAX_ENERGY = 4000;
+    constexpr static double MOVING_ENERGY = 45;
+    constexpr static double MAX_ENERGY = 210000;
     static Time SELF_CHARGING_TIME;
 
     Vector position;
@@ -37,6 +37,7 @@ struct ChargerBase{
     Timer checkTimer;
     Timer eventTimer;
 
+    static int return_sink;
     static int dead_node;
     static double energy_in_moving;
     static double energy_for_nodes;

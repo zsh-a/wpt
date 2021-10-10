@@ -91,12 +91,14 @@
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("WifiSimpleAdhocGrid");
+int reveived_packets = 0;
 
 void ReceivePacket (Ptr<Socket> socket)
 {
   while (socket->Recv ())
     {
       // NS_LOG_UNCOND ("Received one packet!");
+      reveived_packets++;
     }
 }
 
@@ -157,8 +159,8 @@ void SendRandomPacketToLC_DIS(InetSocketAddress& sinkAddress,NodeContainer& node
 	}
 
 	Ptr<Packet> packet = Create<Packet> (buffer, m_packetSize);
+  source->SetIpTtl(10);
 	source->Send (packet);
-
 	source->Close();
 
 	if(SendCount < MaxPacketsNumber)
@@ -232,8 +234,8 @@ int main (int argc, char *argv[])
   MobilityHelper mobility;
   
   mobility.SetPositionAllocator ("ns3::RandomRectanglePositionAllocator",
-                                 "X", StringValue ("ns3::UniformRandomVariable[Min=-50.0|Max=50.0]"),
-                                 "Y", StringValue ("ns3::UniformRandomVariable[Min=-50.0|Max=50.0]"));
+                                 "X", StringValue ("ns3::UniformRandomVariable[Min=-100.0|Max=100.0]"),
+                                 "Y", StringValue ("ns3::UniformRandomVariable[Min=-100.0|Max=100.0]"));
 
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (c);
@@ -301,13 +303,14 @@ int main (int argc, char *argv[])
   Simulator::Schedule(Seconds(1800),print_nodes);
   
   // Output what we are doing
-  NS_LOG_UNCOND ("Testing from node " << sourceNode << " to " << sinkNode << " with grid distance " << distance);
+  // NS_LOG_UNCOND ("Testing from node " << sourceNode << " to " << sinkNode << " with grid distance " << distance);
   // Simulator::Schedule (Seconds (200*3600 - 100), &print_nodes);
 
-  Simulator::Stop (Seconds (2*3600));
+  Simulator::Stop (Seconds (3*3600));
   Simulator::Run ();
   Simulator::Destroy ();
   print_nodes();
+  std::cout << "send packets : " << SendCount  << "\n" << "received packets : " << reveived_packets << "\n";
   charger->print_statistics();
   return 0;
 }

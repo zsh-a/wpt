@@ -35,8 +35,7 @@ NS_LOG_COMPONENT_DEFINE ("WsngrRoutingProtocol");
 
 namespace wsngr {
 
-constexpr double COMM_RANGE = 20;
-constexpr double TX_THRESHOLD = 0.01;
+constexpr double COMM_RANGE = 30;
 
 const auto SENSING_ENERGY_UPDATE_INTERVAL = Seconds(10);
 
@@ -62,11 +61,11 @@ void NodeInfo::handleEnergy(int type){
   }
   energy_consume_in_record_intervel += consume;
   energy -= consume;
-  if(energy <= 0){
+  if(energy <= MIN_ENERGY){
     if(state != NodeState::DEAD){
       deadTimes++;
       state = NodeState::DEAD;
-      energy = 0;
+      energy = MIN_ENERGY;
     }
   }
 }
@@ -326,6 +325,15 @@ RoutingProtocol::GetMainAddress (Ipv4Address iface_addr) const
   return m_mainAddress;
 }
 
+
+double RoutingProtocol::get_weigth(Ipv4Address ip,double weight){
+  auto& node = RoutingProtocol::nodes[ip];
+  if(node.energy <= NodeInfo::MIN_ENERGY) return 1e9;
+  auto& sink = RoutingProtocol::getSink();
+  auto dist = CalculateDistanceSquared(node.position,sink.position);
+  return atan(dist) * weight + (1 - weight) / atan(node.energy);
+};
+
 Ipv4Address
 RoutingProtocol::GetNextForward ()
 {
@@ -341,17 +349,15 @@ RoutingProtocol::GetNextForward ()
   }
 
   Ipv4Address ret = Ipv4Address::GetLoopback();
-  int i = 0;
-  while (i < ne_vec.size ())
-    {
-      auto node = RoutingProtocol::nodes[ne_vec[i]];
-      if (node.energy > TX_THRESHOLD){
-        // std::cout << "for : " << node.ip << "\n";
-        return node.ip;
-      }
-      ++i;
-    }
 
+  std::sort(ne_vec.begin(),ne_vec.end(),[this](const auto& a,const auto& b){
+    return get_weigth(a,0.7) < get_weigth(b,0.7);
+  });
+
+  for(auto& ip : ne_vec){
+    auto& node = RoutingProtocol::nodes[ip];
+    if(node.energy > NodeInfo::MIN_ENERGY) return ip;
+  }
   return Ipv4Address::GetLoopback ();
 }
 
@@ -367,7 +373,7 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDe
   // std::cout << "next " << next << '\n';
 
   auto sink = header.GetDestination();
-  
+
   if (next.IsLocalhost () || next == header.GetSource())
     {
       rtentry = Create<Ipv4Route> ();

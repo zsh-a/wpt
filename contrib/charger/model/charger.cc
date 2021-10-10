@@ -8,6 +8,7 @@ namespace charger{
 
 Time ChargerBase::SELF_CHARGING_TIME = Seconds(1800);
 
+int ChargerBase::return_sink = 0;
 int ChargerBase::dead_node = 0;
 double ChargerBase::energy_in_moving = 0;
 double ChargerBase::energy_for_nodes = 0;
@@ -26,7 +27,7 @@ ChargerBase::ChargerBase():
 
 
 double ChargerBase::getChargingEfficiency(double distance){
-    return 0.68;
+    return 0.8;
 }
 void ChargerBase::handle(){
     std::cout << "state : " << state << "\n";
@@ -82,6 +83,7 @@ void ChargerBase::handle(){
         case SELF_CHARGING:{
             state = IDLE;
             auto& sink = wsngr::RoutingProtocol::getSink();
+            return_sink++;
             position = sink.position;
         }
         break;
@@ -150,6 +152,7 @@ void ChargerBase::print_statistics(){
         dead_node += info.deadTimes;
     }
     std::cout << "======statistics======\n"
+        << "return sink times : " << return_sink << " \n"
         << "dead nodes : " << dead_node << " \n"
         << "energy in moving : " << energy_in_moving << " \n"
         << "nodes receive energy : " << energy_for_nodes << "\n"
