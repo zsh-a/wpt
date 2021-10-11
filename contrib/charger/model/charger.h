@@ -11,6 +11,7 @@
 #include <vector>
 #include <set>
 #include<iostream>
+#include<unordered_set>
 #include<unordered_map>
 namespace ns3 {
 namespace charger{
@@ -22,10 +23,10 @@ struct ChargerBase{
     enum State{
         IDLE,CHARGING,SELF_CHARGING,MOVING
     };
-    constexpr static double CHARGING_RATE = 10;
-    constexpr static double MOVING_RATE = 5;
-    constexpr static double MOVING_ENERGY = 45;
-    constexpr static double MAX_ENERGY = 210000;
+    constexpr static double CHARGING_RATE = 10; // J/s
+    constexpr static double MOVING_RATE = 5; // m/s
+    constexpr static double MOVING_ENERGY = 45; // J/m
+    constexpr static double MAX_ENERGY = 210000; // J
     static Time SELF_CHARGING_TIME;
 
     Vector position;
@@ -44,19 +45,25 @@ struct ChargerBase{
     static int charged_sensor;
     static int requested_sensor;
     static double tot_latency;
-    // static Time first_dead;
+    static Time first_request_time;
 
-    struct ChargeCmp{
-        bool operator()(const Ipv4Address& a,const Ipv4Address& b){
+    struct ChargerCmp{
+        bool operator()(const Ipv4Address& a,const Ipv4Address& b)const{
+            if(a == b) return false;
             auto& x = wsngr::RoutingProtocol::nodes[a];
             auto& y = wsngr::RoutingProtocol::nodes[b];
             auto charger = Singleton<ChargerBase>::Get();
-
             return CalculateDistance(x.position,charger->position) < CalculateDistance(y.position,charger->position);
         }
     };
 
-    std::set<Ipv4Address> chargeQueue;
+    struct IpHash{
+        size_t operator()(const Ipv4Address& ip)const{
+            return std::hash<uint32_t>{}(ip.Get());
+        }
+    };
+
+    std::unordered_set<Ipv4Address,IpHash> chargeQueue;
 
     ChargerBase();
 

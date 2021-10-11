@@ -351,7 +351,7 @@ RoutingProtocol::GetNextForward ()
   Ipv4Address ret = Ipv4Address::GetLoopback();
 
   std::sort(ne_vec.begin(),ne_vec.end(),[this](const auto& a,const auto& b){
-    return get_weigth(a,0.7) < get_weigth(b,0.7);
+    return get_weigth(a,1) < get_weigth(b,1);
   });
 
   for(auto& ip : ne_vec){

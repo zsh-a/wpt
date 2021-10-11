@@ -32,14 +32,14 @@ enum NodeState{
 
 struct NodeInfo{
 
-  constexpr static double MAX_ENERGY = 10800;
-  constexpr static double MIN_ENERGY = 540;
-  constexpr static double CHARING_THRESHOLD = MAX_ENERGY * 0.4;
+  constexpr static double MAX_ENERGY = 10800; // J
+  constexpr static double MIN_ENERGY = 540; // J
+  constexpr static double CHARING_THRESHOLD = MAX_ENERGY * 0.4; // J
   constexpr static int RX_TYPE = 0; 
   constexpr static int TX_TYPE = 1; 
   constexpr static int SENSING_TYPE = 2; 
 
-  constexpr static double ENERGY_RECORD_INTERVEL = 60 * 10;
+  constexpr static double ENERGY_RECORD_INTERVEL = 60 * 10; // s
 
   Ipv4Address ip;
   Vector position;
